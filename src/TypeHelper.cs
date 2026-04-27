@@ -49,8 +49,43 @@ public static class TypeHelper
         { "Year", typeof(Year).FullName! }
     }.ToFrozenDictionary();
 
+    private static FrozenDictionary<BaseItemKind, string> BaseItemKindTypeMap { get; } = JellyfinTypeMap
+        .Where(static entry => Enum.TryParse<BaseItemKind>(entry.Key, out _))
+        .ToFrozenDictionary(
+            static entry => Enum.Parse<BaseItemKind>(entry.Key),
+            static entry => entry.Value);
+
     public static FrozenSet<string> TypeFullNames { get; } = JellyfinTypeMap.Values.ToFrozenSet();
 
+    /// <summary>Pre-computed list of all type full names, returned when no include/exclude filters are applied.</summary>
+    private static IReadOnlyList<string> AllTypeFullNames { get; } = [.. TypeFullNames];
+
+    /// <summary>Pre-computed Meilisearch filter string for the unfiltered case (all types).</summary>
+    private static string AllTypesFilter { get; } = string.Join(" OR ", TypeFullNames.Select(t => $"type = \"{t}\""));
+
+    internal static string BuildTypeFilter(IReadOnlyList<string> types)
+        => ReferenceEquals(types, AllTypeFullNames)
+            ? AllTypesFilter
+            : string.Join(" OR ", types.Select(t => $"type = \"{t}\""));
+
     public static IEnumerable<string> MapTypeKeys(IEnumerable<BaseItemKind> keys) =>
-        keys.Select(k => JellyfinTypeMap.TryGetValue(k.ToString(), out var v) ? v : null).OfType<string>();
+        keys.Select(k => BaseItemKindTypeMap.TryGetValue(k, out var v) ? v : null).OfType<string>();
+
+    internal static IReadOnlyList<string> BuildTypeNames(BaseItemKind[]? includeItemTypes, BaseItemKind[]? excludeItemTypes)
+    {
+        if (includeItemTypes is not { Length: > 0 } && excludeItemTypes is not { Length: > 0 })
+            return AllTypeFullNames;
+
+        List<string> types = includeItemTypes is { Length: > 0 }
+            ? [.. MapTypeKeys(includeItemTypes)]
+            : [.. TypeFullNames];
+
+        if (excludeItemTypes is { Length: > 0 })
+        {
+            var excludeNames = MapTypeKeys(excludeItemTypes).ToHashSet();
+            types.RemoveAll(excludeNames.Contains);
+        }
+
+        return types;
+    }
 }

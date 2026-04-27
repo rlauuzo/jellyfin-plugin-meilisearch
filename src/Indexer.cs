@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Globalization;
+﻿using System.Globalization;
 using Meilisearch;
 using Microsoft.Extensions.Logging;
 using Index = Meilisearch.Index;
@@ -19,7 +18,7 @@ public abstract class Indexer(MeilisearchClientHolder clientHolder, ILogger<Inde
             return;
         }
 
-        await task;
+        await task.ConfigureAwait(false);
     }
 
     private async Task IndexInternal(MeilisearchClient meilisearchClient, Index index)
@@ -38,5 +37,5 @@ public abstract class Indexer(MeilisearchClientHolder clientHolder, ILogger<Inde
         Status["LastIndexed"] = DateTime.Now.ToString(CultureInfo.CurrentCulture);
     }
 
-    protected abstract Task<ImmutableList<MeilisearchItem>> GetItems(IReadOnlySet<string> includedTypes);
+    protected abstract Task<IReadOnlyList<MeilisearchItem>> GetItems(IReadOnlySet<string> includedTypes);
 }

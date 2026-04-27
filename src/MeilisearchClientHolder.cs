@@ -193,8 +193,8 @@ public class MeilisearchClientHolder(ILogger<MeilisearchClientHolder> logger, IS
     private static bool IsReconnectable(Exception e)
     {
         return e is MeilisearchCommunicationError
-               || e is HttpRequestException
-               || e is TaskCanceledException
-               || e is TimeoutException;
+               or HttpRequestException
+               or TaskCanceledException
+               or TimeoutException;
     }
 }

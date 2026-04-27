@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using MediaBrowser.Common.Configuration;
+﻿using MediaBrowser.Common.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +12,7 @@ public class DbIndexer(
     MeilisearchClientHolder clientHolder,
     ILogger<DbIndexer> logger) : Indexer(clientHolder, logger)
 {
-    protected override async Task<ImmutableList<MeilisearchItem>> GetItems(IReadOnlySet<string> includedTypes)
+    protected override async Task<IReadOnlyList<MeilisearchItem>> GetItems(IReadOnlySet<string> includedTypes)
     {
         var dbPath = Path.Combine(applicationPaths.DataPath, "jellyfin.db");
         Status["Database"] = dbPath;
@@ -71,6 +70,6 @@ public class DbIndexer(
             ));
         }
 
-        return items.ToImmutableList();
+        return items;
     }
 }

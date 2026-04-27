@@ -87,7 +87,7 @@ public class Plugin : BasePlugin<Config>, IHasWebPages
 
         try
         {
-            _updatingTask = _TryCreateMeilisearchClient();
+            _updatingTask = CreateMeilisearchClientCoreAsync();
             await _updatingTask;
         }
         finally
@@ -96,7 +96,7 @@ public class Plugin : BasePlugin<Config>, IHasWebPages
         }
     }
 
-    private async Task _TryCreateMeilisearchClient()
+    private async Task CreateMeilisearchClientCoreAsync()
     {
         await _clientHolder.Set(Configuration);
         await Indexer.Index();
