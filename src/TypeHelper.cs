@@ -36,6 +36,7 @@ public static class TypeHelper
         { "Photo", typeof(Photo).FullName! },
         { "PhotoAlbum", typeof(PhotoAlbum).FullName! },
         { "Playlist", typeof(Playlist).FullName! },
+        // PlaylistsFolder lives in the server assembly; no public type reference is available to the plugin.
         { "PlaylistsFolder", "Emby.Server.Implementations.Playlists.PlaylistsFolder" },
         { "Season", typeof(Season).FullName! },
         { "Series", typeof(Series).FullName! },
@@ -63,6 +64,16 @@ public static class TypeHelper
     /// <summary>Pre-computed Meilisearch filter string for the unfiltered case (all types).</summary>
     private static string AllTypesFilter { get; } = string.Join(" OR ", TypeFullNames.Select(t => $"type = \"{t}\""));
 
+    /// <summary>
+    /// Builds a Meilisearch filter expression for the given type list.
+    /// Uses a cached filter string when <paramref name="types"/> is the exact
+    /// <see cref="AllTypeFullNames"/> singleton (checked by reference).
+    /// <para>
+    /// <b>Important:</b> <see cref="BuildTypeNames"/> must return <see cref="AllTypeFullNames"/>
+    /// by reference (not a copy) for the unfiltered case, otherwise this optimization silently
+    /// degrades to recomputing the filter string on every call.
+    /// </para>
+    /// </summary>
     internal static string BuildTypeFilter(IReadOnlyList<string> types)
         => ReferenceEquals(types, AllTypeFullNames)
             ? AllTypesFilter

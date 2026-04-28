@@ -23,7 +23,7 @@ public class DbIndexer(
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadOnly
         }.ToString());
-        await connection.OpenAsync();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         await using var command = connection.CreateCommand();
         var types = includedTypes.Select((t, i) => (t, i)).ToList();
@@ -41,32 +41,54 @@ public class DbIndexer(
         foreach (var (t, i) in types)
             command.Parameters.AddWithValue($"@type{i}", t);
 
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+
+        // Resolve column ordinals once by name to avoid fragile magic-number indexing.
+        var colId = reader.GetOrdinal("Id");
+        var colType = reader.GetOrdinal("Type");
+        var colParentId = reader.GetOrdinal("ParentId");
+        var colCommunityRating = reader.GetOrdinal("CommunityRating");
+        var colName = reader.GetOrdinal("Name");
+        var colOverview = reader.GetOrdinal("Overview");
+        var colProductionYear = reader.GetOrdinal("ProductionYear");
+        var colGenres = reader.GetOrdinal("Genres");
+        var colStudios = reader.GetOrdinal("Studios");
+        var colTags = reader.GetOrdinal("Tags");
+        var colIsFolder = reader.GetOrdinal("IsFolder");
+        var colCriticRating = reader.GetOrdinal("CriticRating");
+        var colOriginalTitle = reader.GetOrdinal("OriginalTitle");
+        var colSeriesName = reader.GetOrdinal("SeriesName");
+        var colArtists = reader.GetOrdinal("Artists");
+        var colAlbumArtists = reader.GetOrdinal("AlbumArtists");
+        var colPath = reader.GetOrdinal("Path");
+        var colTagline = reader.GetOrdinal("Tagline");
+        var colSortName = reader.GetOrdinal("SortName");
+
         var items = new List<MeilisearchItem>();
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            var path = !reader.IsDBNull(16) ? reader.GetString(16) : null;
+            var path = !reader.IsDBNull(colPath) ? reader.GetString(colPath) : null;
             if (path?.StartsWith('%') == true) path = null;
             items.Add(new MeilisearchItem(
-                reader.GetGuid(0).ToString(),
-                !reader.IsDBNull(1) ? reader.GetString(1) : null,
-                !reader.IsDBNull(2) ? reader.GetString(2) : null,
-                CommunityRating: !reader.IsDBNull(3) ? reader.GetDouble(3) : null,
-                Name: !reader.IsDBNull(4) ? reader.GetString(4) : null,
-                Overview: !reader.IsDBNull(5) ? reader.GetString(5) : null,
-                ProductionYear: !reader.IsDBNull(6) ? reader.GetInt32(6) : null,
-                Genres: !reader.IsDBNull(7) ? reader.GetString(7).Split('|') : null,
-                Studios: !reader.IsDBNull(8) ? reader.GetString(8).Split('|') : null,
-                Tags: !reader.IsDBNull(9) ? reader.GetString(9).Split('|') : null,
-                IsFolder: !reader.IsDBNull(10) ? reader.GetBoolean(10) : null,
-                CriticRating: !reader.IsDBNull(11) ? reader.GetDouble(11) : null,
-                OriginalTitle: !reader.IsDBNull(12) ? reader.GetString(12) : null,
-                SeriesName: !reader.IsDBNull(13) ? reader.GetString(13) : null,
-                Artists: !reader.IsDBNull(14) ? reader.GetString(14).Split('|') : null,
-                AlbumArtists: !reader.IsDBNull(15) ? reader.GetString(15).Split('|') : null,
+                reader.GetGuid(colId).ToString(),
+                !reader.IsDBNull(colType) ? reader.GetString(colType) : null,
+                !reader.IsDBNull(colParentId) ? reader.GetString(colParentId) : null,
+                CommunityRating: !reader.IsDBNull(colCommunityRating) ? reader.GetDouble(colCommunityRating) : null,
+                Name: !reader.IsDBNull(colName) ? reader.GetString(colName) : null,
+                Overview: !reader.IsDBNull(colOverview) ? reader.GetString(colOverview) : null,
+                ProductionYear: !reader.IsDBNull(colProductionYear) ? reader.GetInt32(colProductionYear) : null,
+                Genres: !reader.IsDBNull(colGenres) ? reader.GetString(colGenres).Split('|') : null,
+                Studios: !reader.IsDBNull(colStudios) ? reader.GetString(colStudios).Split('|') : null,
+                Tags: !reader.IsDBNull(colTags) ? reader.GetString(colTags).Split('|') : null,
+                IsFolder: !reader.IsDBNull(colIsFolder) ? reader.GetBoolean(colIsFolder) : null,
+                CriticRating: !reader.IsDBNull(colCriticRating) ? reader.GetDouble(colCriticRating) : null,
+                OriginalTitle: !reader.IsDBNull(colOriginalTitle) ? reader.GetString(colOriginalTitle) : null,
+                SeriesName: !reader.IsDBNull(colSeriesName) ? reader.GetString(colSeriesName) : null,
+                Artists: !reader.IsDBNull(colArtists) ? reader.GetString(colArtists).Split('|') : null,
+                AlbumArtists: !reader.IsDBNull(colAlbumArtists) ? reader.GetString(colAlbumArtists).Split('|') : null,
                 Path: path,
-                Tagline: !reader.IsDBNull(17) ? reader.GetString(17) : null,
-                SortName: !reader.IsDBNull(18) ? reader.GetString(18) : null
+                Tagline: !reader.IsDBNull(colTagline) ? reader.GetString(colTagline) : null,
+                SortName: !reader.IsDBNull(colSortName) ? reader.GetString(colSortName) : null
             ));
         }
 

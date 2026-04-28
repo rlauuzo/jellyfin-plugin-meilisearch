@@ -114,14 +114,14 @@ public class MeilisearchClientHolder(ILogger<MeilisearchClientHolder> logger, IS
 
         await index.UpdateFilterableAttributesAsync(
             ["type", "parentId", "isFolder"]
-        );
+        ).ConfigureAwait(false);
 
         await index.UpdateSortableAttributesAsync(
             ["communityRating", "criticRating"]
-        );
+        ).ConfigureAwait(false);
 
-        await index.UpdateSearchableAttributesAsync(SearchableAttributes);
-        await index.UpdateDisplayedAttributesAsync(SearchableAttributes.Concat(["guid", "type"]));
+        await index.UpdateSearchableAttributesAsync(SearchableAttributes).ConfigureAwait(false);
+        await index.UpdateDisplayedAttributesAsync(SearchableAttributes.Concat(["guid", "type"])).ConfigureAwait(false);
 
         // Set ranking rules to add critic rating
         await index.UpdateRankingRulesAsync(
@@ -129,7 +129,7 @@ public class MeilisearchClientHolder(ILogger<MeilisearchClientHolder> logger, IS
                 "words", "typo", "proximity", "attribute", "sort", "exactness", "communityRating:desc",
                 "criticRating:desc"
             ]
-        );
+        ).ConfigureAwait(false);
         return index;
     }
 

@@ -8,7 +8,15 @@ public class ScheduledTask(ILogger<ScheduledTask> logger, Indexer indexer) : ISc
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         logger.LogInformation("Executing meilisearch index task");
-        await indexer.Index();
+        try
+        {
+            await indexer.Index().ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to execute Meilisearch index task");
+            throw;
+        }
     }
 
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()

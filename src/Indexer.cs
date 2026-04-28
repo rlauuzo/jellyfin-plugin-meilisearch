@@ -7,18 +7,33 @@ namespace Jellyfin.Plugin.Meilisearch;
 
 public abstract class Indexer(MeilisearchClientHolder clientHolder, ILogger<Indexer> logger)
 {
+    private readonly SemaphoreSlim _indexLock = new(1, 1);
+
     public Dictionary<string, string> Status { get; } = new();
 
     public async Task Index()
     {
-        var task = clientHolder.Call(IndexInternal);
-        if (task == null)
+        if (!await _indexLock.WaitAsync(0).ConfigureAwait(false))
         {
-            logger.LogWarning("Meilisearch is not configured, skipping index update");
+            logger.LogWarning("Indexing is already in progress, skipping");
             return;
         }
 
-        await task.ConfigureAwait(false);
+        try
+        {
+            var task = clientHolder.Call(IndexInternal);
+            if (task == null)
+            {
+                logger.LogWarning("Meilisearch is not configured, skipping index update");
+                return;
+            }
+
+            await task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _indexLock.Release();
+        }
     }
 
     private async Task IndexInternal(MeilisearchClient meilisearchClient, Index index)

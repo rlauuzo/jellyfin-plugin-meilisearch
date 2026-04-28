@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.Meilisearch;
 [Route("meilisearch")]
 [ApiController]
 [Authorize(Policy = Policies.RequiresElevation)]
-public class Controller(MeilisearchClientHolder clientHolder) : ControllerBase
+public class Controller(MeilisearchClientHolder clientHolder, Indexer indexer) : ControllerBase
 {
     [HttpGet("status")]
     public ActionResult GetStatus()
@@ -16,22 +16,26 @@ public class Controller(MeilisearchClientHolder clientHolder) : ControllerBase
         {
             meilisearch = clientHolder.Status,
             meilisearchOk = clientHolder.Ok,
-            averageSearchTime = $"{Plugin.Instance!.AverageSearchTime}ms",
-            indexStatus = Plugin.Instance.Indexer.Status
+            indexStatus = indexer.Status
         });
     }
+
+    // TODO: These should be [HttpPost] for correctness, but changing them is a breaking change
+    // for the config.html frontend which currently uses GET requests via ApiClient.get().
 
     [HttpGet("reconnect")]
     public async Task<ActionResult> Reconnect()
     {
-        if (!clientHolder.Ok) await Plugin.Instance!.TryCreateMeilisearchClient();
+        var plugin = Plugin.Instance;
+        if (!clientHolder.Ok && plugin is not null)
+            await plugin.TryCreateMeilisearchClient().ConfigureAwait(false);
         return GetStatus();
     }
 
     [HttpGet("reindex")]
     public async Task<ActionResult> Reindex()
     {
-        await Plugin.Instance!.Indexer.Index();
+        await indexer.Index().ConfigureAwait(false);
         return GetStatus();
     }
 }

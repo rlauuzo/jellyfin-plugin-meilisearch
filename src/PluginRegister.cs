@@ -37,6 +37,7 @@ public class PluginRegister : IPluginServiceRegistrator
         }
         else
         {
+            // ILogger is not yet available during DI registration, so Console.Error is the only option here.
             Console.Error.WriteLine("[Meilisearch] WARNING: IItemRepository was not registered before the plugin — Meilisearch search decoration is disabled.");
         }
     }

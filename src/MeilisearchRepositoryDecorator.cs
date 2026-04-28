@@ -47,12 +47,38 @@ public class MeilisearchRepositoryDecorator(
         if (!TryPrepareSearch(filter, out var searchTerm, out var types))
             return null;
 
-        var hitsPerPage = Math.Max(filter.Limit is > 0 ? filter.Limit.Value : 30, 1);
-        var page = ((filter.StartIndex ?? 0) / hitsPerPage) + 1;
+        var startIndex = filter.StartIndex ?? 0;
+        var limit = Math.Max(filter.Limit is > 0 ? filter.Limit.Value : 30, 1);
+
+        // Meilisearch uses 1-indexed page-based pagination. Map Jellyfin's offset-based
+        // pagination (StartIndex/Limit) to (Page/HitsPerPage).
+        int page, hitsPerPage, skip;
+        if (startIndex % limit == 0)
+        {
+            // Aligned: straightforward mapping.
+            page = (startIndex / limit) + 1;
+            hitsPerPage = limit;
+            skip = 0;
+        }
+        else
+        {
+            // Misaligned: request a single page covering [0, startIndex+limit) and trim
+            // the leading items afterward to avoid cross-page-boundary issues.
+            page = 1;
+            hitsPerPage = startIndex + limit;
+            skip = startIndex;
+        }
 
         // Jellyfin calls into this repository synchronously. Running the external async search
         // on a thread-pool thread reduces sync-over-async deadlock risk at this boundary.
-        return Task.Run(() => ExecuteSearchAsync(searchTerm, types, page, hitsPerPage)).GetAwaiter().GetResult();
+        var result = Task.Run(() => ExecuteSearchAsync(searchTerm, types, page, hitsPerPage)).GetAwaiter().GetResult();
+
+        if (result is null || skip == 0)
+            return result;
+
+        // Trim leading items when StartIndex wasn't page-aligned.
+        var sliced = result.OrderedIds.Skip(skip).Take(limit).ToList();
+        return new SearchResultData(sliced, result.TotalCount);
     }
 
     /// <summary>
@@ -110,6 +136,16 @@ public class MeilisearchRepositoryDecorator(
         }
     }
 
+    /// <summary>
+    /// Fetches concrete <see cref="BaseItem"/>s from the inner repository for the IDs returned by
+    /// Meilisearch, preserving Meilisearch's relevance ordering.
+    /// <para>
+    /// <see cref="RunSearch"/> already applies page-based pagination, so <paramref name="searchResult"/>
+    /// contains only the IDs for the requested page. <see cref="MaterializedQueryHelper"/> strips
+    /// <c>StartIndex</c>/<c>Limit</c> from the filter during the inner-repo fetch because those
+    /// were already consumed by the Meilisearch query — no additional slicing is needed.
+    /// </para>
+    /// </summary>
     private IReadOnlyList<BaseItem> MaterializeItems(InternalItemsQuery filter, SearchResultData searchResult)
         => MaterializedQueryHelper.Execute(filter, searchResult.OrderedIds, inner.GetItemList);
 

@@ -91,15 +91,6 @@
                     </select>
                     <div class="fieldDescription">Controls how Meilisearch matches search keywords.</div>
                 </div>
-                <div class="checkboxContainer checkboxContainer-withDescription">
-                    <label class="emby-checkbox-label">
-                        <input id="Debug" is="emby-checkbox" name="Debug" type="checkbox"/>
-                        <span>Debug Output</span>
-                    </label>
-                    <div class="fieldDescription checkboxFieldDescription">
-                        This option can't change log level, it only enables some certain log outputs.
-                    </div>
-                </div>
                 <div>
                     <button class="raised button-submit block emby-button" is="emby-button" type="submit">
                         <span>Save</span>
@@ -156,7 +147,6 @@
                     ApiClient.getPluginConfiguration(id).then(config => {
                         document.querySelector('#Url').value = config.Url;
                         document.querySelector('#ApiKey').value = config.ApiKey;
-                        document.querySelector('#Debug').checked = config.Debug;
                         document.querySelector('#IndexName').value = config.IndexName;
                         document.querySelector('#MatchingStrategy').value = config.MatchingStrategy || 'last';
                         Dashboard.hideLoadingMsg();
@@ -170,7 +160,6 @@
                     ApiClient.getPluginConfiguration(id).then(config => {
                         config.Url = document.querySelector('#Url').value;
                         config.ApiKey = document.querySelector('#ApiKey').value;
-                        config.Debug = document.querySelector('#Debug').checked;
                         config.IndexName = document.querySelector('#IndexName').value;
                         config.MatchingStrategy = document.querySelector('#MatchingStrategy').value;
                         ApiClient.updatePluginConfiguration(id, config).then(result => {

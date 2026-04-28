@@ -13,8 +13,7 @@ public class Plugin : BasePlugin<Config>, IHasWebPages
 {
     private readonly MeilisearchClientHolder _clientHolder;
     private readonly ILogger<Plugin> _logger;
-    public readonly Indexer Indexer;
-    public long AverageSearchTime;
+    private readonly SemaphoreSlim _updateLock = new(1, 1);
 
     public Plugin(
         IApplicationPaths applicationPaths,
@@ -32,16 +31,10 @@ public class Plugin : BasePlugin<Config>, IHasWebPages
         Indexer = indexer;
         Instance = this;
 
-        ReloadMeilisearch += (_, _) =>
-        {
-            logger.LogInformation("Configuration changed, reloading meilisearch...");
-            TryCreateMeilisearchClient().Wait();
-        };
-
         hostApplicationLifetime.ApplicationStarted.Register(() => { _ = TryCreateMeilisearchClient(false); });
     }
 
-    private EventHandler<BasePluginConfiguration> ReloadMeilisearch { get; }
+    public Indexer Indexer { get; }
 
     public override string Name => "Meilisearch";
     public override Guid Id => Guid.Parse("974395db-b31d-46a2-bc86-ef9aa5ac04dd");
@@ -71,44 +64,35 @@ public class Plugin : BasePlugin<Config>, IHasWebPages
         SaveConfiguration(Configuration);
         ConfigurationChanged?.Invoke(this, configuration);
         if (!skipReload)
-            ReloadMeilisearch.Invoke(this, configuration);
+        {
+            _logger.LogInformation("Configuration changed, reloading meilisearch...");
+            // Fire-and-forget: avoid blocking the UI thread with .Wait().
+            // TryCreateMeilisearchClient is guarded by _updateLock to prevent concurrent runs.
+            _ = TryCreateMeilisearchClient(join: false);
+        }
     }
-
-    private volatile Task? _updatingTask;
 
     public async Task TryCreateMeilisearchClient(bool join = true)
     {
-        if (_updatingTask != null)
+        if (!await _updateLock.WaitAsync(join ? Timeout.Infinite : 0).ConfigureAwait(false))
         {
-            _logger.LogWarning("Meilisearch client configuration is still updating，skipping");
-            if (join) await _updatingTask;
+            _logger.LogWarning("Meilisearch client configuration is still updating, skipping");
             return;
         }
 
         try
         {
-            _updatingTask = CreateMeilisearchClientCoreAsync();
-            await _updatingTask;
+            await CreateMeilisearchClientCoreAsync().ConfigureAwait(false);
         }
         finally
         {
-            _updatingTask = null;
+            _updateLock.Release();
         }
     }
 
     private async Task CreateMeilisearchClientCoreAsync()
     {
-        await _clientHolder.Set(Configuration);
-        await Indexer.Index();
-    }
-
-
-    public void UpdateAverageSearchTime(long averageSearchTime)
-    {
-        lock (this)
-        {
-            if (AverageSearchTime == 0) AverageSearchTime = averageSearchTime;
-            AverageSearchTime = (averageSearchTime + AverageSearchTime) / 2;
-        }
+        await _clientHolder.Set(Configuration).ConfigureAwait(false);
+        await Indexer.Index().ConfigureAwait(false);
     }
 }

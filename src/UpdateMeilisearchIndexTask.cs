@@ -20,7 +20,7 @@ public class UpdateMeilisearchIndexTask(
 
         try
         {
-            await indexer.Index();
+            await indexer.Index().ConfigureAwait(false);
         }
         catch (Exception e)
         {
